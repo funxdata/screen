@@ -75,6 +75,7 @@ pub fn handler_piksel_stream(req: &Request<Vec<u8>>, mimetype: &str) -> Result<R
     let mut file = File::open(&path)?;
     let file_size = file.metadata()?.len();
     let mut buf = Vec::new();
+    #[allow(unused_assignments)]
     let mut status = StatusCode::OK;
 
     let mut builder = Response::builder()
