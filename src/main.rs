@@ -1,11 +1,10 @@
-#![windows_subsystem = "windows"]
-mod app;
+mod application;
 mod apis;
-mod service;
-use app::{vindu,browser,fxevent};
-fn main(){
-    // 初始化应用
-    let event_loop = EventLoop::new();
-    let piksel_design = vindu::vindu_init(&event_loop);
-    let _piksel_browser = browser::browser_init(piksel_design);
+use application::{app::App};
+use crate::application::event::init_event;
+
+fn main() {
+    let event = init_event();
+    let mut app = App::default();
+    let _ = event.run_app(&mut app);
 }

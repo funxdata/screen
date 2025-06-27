@@ -9,5 +9,4 @@ pub fn ext_to_mimetype(ext:&str)->&str{
         "mp4"=>"video/mp4",
         _=>"text/plain"
     }
-
 }
