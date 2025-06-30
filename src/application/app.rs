@@ -2,8 +2,10 @@ use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
+use std::path::Path;
 use crate::application::vindu::init_vindu;
 use crate::application::browser::init_webview;
+
 
 use wry::WebView;
 #[derive(Default)]
@@ -29,7 +31,12 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 self.window.as_ref().unwrap().request_redraw();
             }
-            _ => {}
+            _ => {
+                let stop_flag_path = "./run.flag";
+                if !Path::new(stop_flag_path).exists() {
+                    std::process::exit(1);
+                }
+            }
         }
     }
 }

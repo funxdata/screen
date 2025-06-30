@@ -9,20 +9,13 @@ use http::{Request, Response};
 use super::mimetype::mime_type_hash;
 use super::handler::{handler_piksel_html,handler_piksel_json,handler_piksel_static,handler_piksel_stream};
 
-
 pub fn init_webview(vindu_some:Option<&Window>)->Option<WebView>{
     if vindu_some.is_none() {
         return None;
     }
     let vindu = vindu_some.unwrap();
     let webview = WebViewBuilder::new()
-    .with_html(r#"
-      <html>
-          <body>
-              <h2>IPC Test</h2>
-          </body>
-      </html>
-    "#)
+    .with_url("piksel://localhost/index.html")
     .with_custom_protocol("piksel".into(), handle_piksel_protocol)
     .with_devtools(true)
     .build(&vindu)
@@ -36,7 +29,7 @@ pub fn handle_piksel_protocol(
 ) -> Response<Cow<'static, [u8]>> {
     let path = req.uri().path();
 
-    if path.starts_with("/api/") {
+    if path.starts_with("/v1/") {
         return handler_piksel_json(&req).unwrap_or_else(internal_error);
     } else if path.ends_with(".html") {
         return handler_piksel_html(&req, "text/html").unwrap_or_else(internal_error);
