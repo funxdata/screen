@@ -8,14 +8,39 @@ use std::path::Path;
 use http::{Request, Response};
 use super::mimetype::mime_type_hash;
 use super::handler::{handler_piksel_html,handler_piksel_json,handler_piksel_static,handler_piksel_stream};
+use crate::utils::ip::get_local_ip;
 
 pub fn init_webview(vindu_some:Option<&Window>)->Option<WebView>{
     if vindu_some.is_none() {
         return None;
     }
     let vindu = vindu_some.unwrap();
+
     let webview = WebViewBuilder::new()
+    .with_visible(true)
     .with_url("piksel://localhost/index.html")
+    .with_custom_protocol("piksel".into(), handle_piksel_protocol)
+    .with_devtools(false)
+    .build(&vindu)
+    .unwrap();
+    return Some(webview);
+}
+
+pub fn init_debug_webview(vindu_some:Option<&Window>)->Option<WebView>{
+    if vindu_some.is_none() {
+        return None;
+    }
+    let vindu = vindu_some.unwrap();
+    #[allow(unused_assignments)]
+    let mut ip_addr ="".to_string();
+    let ip = get_local_ip();
+    if ip.is_none() {
+        ip_addr = "http://127.0.0.1:8864/".to_string();
+    }else{
+        ip_addr = format!("http://{}:8864/", ip.unwrap());
+    }
+    let webview = WebViewBuilder::new()
+    .with_url(ip_addr)
     .with_custom_protocol("piksel".into(), handle_piksel_protocol)
     .with_devtools(true)
     .build(&vindu)

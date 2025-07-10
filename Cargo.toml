@@ -1,5 +1,5 @@
 [package]
-name = "funxscreen"
+name = "screen"
 version = "0.1.0"
 edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,6 +13,7 @@ http-range = "0.1.5"
 xrutes = "0.1.2"
 clap = { version = "4.5.40", features = ["derive"] }
 libloading = "0.8.8"
+get_if_addrs = "0.5.3"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
