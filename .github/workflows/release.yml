@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'              # 只有打 tag 才触发
+  workflow_dispatch:       # 也允许手动点击触发
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable   # 也可以 pin 1.78.0 之类
+
+      - name: Build release binary (.exe)
+        run: |
+          cargo build --release
+          mkdir dist
+          copy target\release\screen.exe dist\screen.exe
+
+      - name: Create GitHub Release & Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET_PATH }}
+          body_path: CHANGELOG.md       # 自动把刚才生成的 changelog 当作说明
+          draft: false                  # 设为 true 就是草稿
+          prerelease: false             # 设为 true 就是 Pre‑release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
