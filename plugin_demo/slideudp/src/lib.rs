@@ -13,7 +13,7 @@ struct UdpReq {
     command: String,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slideudp(app_ptr: *mut Application) {
     if app_ptr.is_null() {
         return;
@@ -26,7 +26,7 @@ pub extern "C" fn slideudp(app_ptr: *mut Application) {
     let body = match String::from_utf8(body_bytes) {
         Ok(b) => b,
         Err(_) => {
-            app.response.err(40001);
+            app.reponse.err(40001);
             return;
         }
     };
@@ -35,7 +35,7 @@ pub extern "C" fn slideudp(app_ptr: *mut Application) {
     let req_data: UdpReq = match serde_json::from_str(&body) {
         Ok(j) => j,
         Err(_) => {
-            app.response.err(40002);
+            app.reponse.err(40002);
             return;
         }
     };
@@ -46,7 +46,7 @@ pub extern "C" fn slideudp(app_ptr: *mut Application) {
     {
         Ok(a) => a,
         Err(_) => {
-            app.response.err(40003);
+            app.reponse.err(40003);
             return;
         }
     };
@@ -54,7 +54,7 @@ pub extern "C" fn slideudp(app_ptr: *mut Application) {
     let socket = match UdpSocket::bind("0.0.0.0:0") {
         Ok(s) => s,
         Err(_) => {
-            app.response.err(40004);
+            app.reponse.err(40004);
             return;
         }
     };
@@ -65,7 +65,7 @@ pub extern "C" fn slideudp(app_ptr: *mut Application) {
     let recv_socket = match socket.try_clone() {
         Ok(s) => s,
         Err(_) => {
-            app.response.err(40005);
+            app.reponse.err(40005);
             return;
         }
     };
@@ -86,12 +86,12 @@ pub extern "C" fn slideudp(app_ptr: *mut Application) {
 
     // 5. 发送 UDP 命令
     if let Err(_) = socket.send_to(req_data.command.as_bytes(), server_addr) {
-        app.response.err(40006);
+        app.reponse.err(40006);
         return;
     }
 
     // 6. 成功返回
-    app.response.success("UDP 命令已发送".to_string());
+    app.reponse.success(format!("{}", "成功"));
 }
 
 /*
