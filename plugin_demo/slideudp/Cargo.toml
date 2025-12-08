@@ -3,6 +3,10 @@ name = "slideudp"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "slideudp"           # 库名
+crate-type = ["cdylib"]     # 生成动态库（Windows 下就是 DLL）
+
 [dependencies]
 serialport = "4.8.1"
 xrutes = "0.1.2"

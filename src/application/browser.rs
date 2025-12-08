@@ -15,10 +15,10 @@ pub fn init_webview(vindu_some:Option<&Window>)->Option<WebView>{
         return None;
     }
     let vindu = vindu_some.unwrap();
-
     let webview = WebViewBuilder::new()
     .with_visible(true)
-    .with_url("piksel://localhost/index.html")
+    .with_transparent(true)
+    .with_url("piksel://localhost/app.html")
     .with_custom_protocol("piksel".into(), handle_piksel_protocol)
     .with_devtools(false)
     .build(&vindu)
@@ -41,8 +41,9 @@ pub fn init_debug_webview(vindu_some:Option<&Window>)->Option<WebView>{
     }
     let webview = WebViewBuilder::new()
     .with_url(ip_addr)
+    .with_transparent(true)
     .with_custom_protocol("piksel".into(), handle_piksel_protocol)
-    .with_devtools(true)
+    .with_devtools(false)
     .build(&vindu)
     .unwrap();
     return Some(webview);
