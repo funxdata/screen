@@ -10,12 +10,14 @@ pub fn create_webview(
         .with_initialization_script("window.IS_DESKTOP = true;");
 
     if debug {
+        println!("......debug........");
         builder = builder
-            .with_url("https://www.funxdata.com")
+            .with_url("https://www.funxdata.com/")
             .with_devtools(true);
     } else {
+        println!("......release........");
         builder = builder
-            .with_url("https://www.funxdata.com");
+            .with_url("https://www.funxdata.com/");
     }
 
     builder.build(window).ok()

@@ -31,12 +31,18 @@ enum Commands {
 fn run_app(debug: bool) {
     // 创建运行标志
     if let Err(err) = File::create("./run.flag") {
-        eprintln!("❌ Failed to create run.flag: {err}");
+        eprintln!("Failed to create run.flag: {err}");
         return;
     }
 
     if debug {
-        println!("🛠 Running in Debug mode...");
+        println!("Running in Debug mode...");
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        println!("Initializing GTK...");
+        gtk::init().expect("Failed to init GTK");
     }
 
     // 创建 winit event loop
@@ -47,7 +53,7 @@ fn run_app(debug: bool) {
 
     // 启动应用
     if let Err(err) = event_loop.run_app(&mut app) {
-        eprintln!("❌ Failed to run app: {err}");
+        eprintln!("Failed to run app: {err}");
     }
 }
 
@@ -56,19 +62,16 @@ fn main() {
 
     match args.command.unwrap_or(Commands::Start) {
         Commands::Start => run_app(false),
-
         Commands::Debug => run_app(true),
-
         Commands::Stop => {
             if let Err(err) = fs::remove_file("./run.flag") {
-                eprintln!("⚠️ Could not remove run.flag: {err}");
+                eprintln!("Could not remove run.flag: {err}");
             } else {
-                println!("✅ Application stopped.");
+                println!("Application stopped.");
             }
         }
-
         Commands::Init => {
-            println!("🔧 Project initialization not yet implemented.");
+            println!("Project initialization not yet implemented.");
         }
     }
 }
