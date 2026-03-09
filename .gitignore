@@ -22,3 +22,5 @@ plugin/*
 assets/*
 run.flag
 plugin_demo/*
+screen.*
+AppDir*
