@@ -1,0 +1,8 @@
+{
+  "name": "screen",
+  "version": "1.0.0",
+  "description": "core for screen",
+  "keywords": ["screen"],
+  "author": "funxdata",
+  "type": "core"
+}

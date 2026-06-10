@@ -1,12 +1,11 @@
+use crate::application::browser;
+use crate::platform;
 use winit::application::ApplicationHandler;
+use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
-use winit::dpi::{LogicalPosition, LogicalSize};
-use wry::{WebView, Rect};
-
-use crate::platform;
-use crate::application::browser;
+use wry::{Rect, WebView};
 
 pub struct App {
     window: Option<Window>,
@@ -26,12 +25,10 @@ impl App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // 1️⃣ 创建窗口（平台层负责）
+        // 创建窗口（平台层负责）
         self.window = platform::create_window(event_loop, self.debug);
-
-        // 2️⃣ 创建 WebView（应用层负责）
+        // 创建 WebView（应用层负责）
         self.webview = browser::create_webview(self.window.as_ref(), self.debug);
-
         #[cfg(target_os = "linux")]
         {
             // Linux GTK 下 WebView 初始化必须 pump GTK 事件一次，避免闪烁
@@ -41,12 +38,7 @@ impl ApplicationHandler for App {
         }
     }
 
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        id: WindowId,
-        event: WindowEvent,
-    ) {
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
         if Some(id) != self.window.as_ref().map(|w| w.id()) {
             return;
         }
@@ -57,7 +49,7 @@ impl ApplicationHandler for App {
             }
 
             // ✅ 窗口大小变化（只在子 WebView 或手动 bounds 时需要）
-           WindowEvent::Resized(size) => {
+            WindowEvent::Resized(size) => {
                 let window = self.window.as_ref().unwrap();
                 let webview = self.webview.as_ref().unwrap();
 
