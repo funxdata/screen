@@ -1,0 +1,45 @@
+name: Build Windows
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          choco install jq -y
+
+      - name: Read version from JSON
+        id: version
+        run: |
+          echo "project=$(jq -r '.name' dytes.json)" >> $env:GITHUB_OUTPUT
+          echo "version=$(jq -r '.version' dytes.json)" >> $env:GITHUB_OUTPUT
+
+      - name: Build Release
+        run: |
+          cargo build --release
+
+      - name: Prepare upload directory
+        run: |
+          mkdir upload
+          copy target\release\screen.exe upload\
+
+      - name: Upload to UpYun S3
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          aws_key_id: ${{ secrets.UPYUN_API_KEY }}
+          aws_secret_access_key: ${{ secrets.UPYUN_API_SECRET }}
+          aws_bucket: ${{ secrets.UPYUN_BUCKET }}
+          source_dir: upload
+          destination_dir: core/${{ steps.version.outputs.project }}/${{ steps.version.outputs.version }}/win
+          endpoint: https://s3.api.upyun.com

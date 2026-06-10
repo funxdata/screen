@@ -1,0 +1,48 @@
+name: Build LinuxOS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y jq
+
+      - name: Read version from JSON
+        id: version
+        run: |
+          echo "project=$(jq -r '.name' dytes.json)" >> $GITHUB_OUTPUT
+          echo "version=$(jq -r '.version' dytes.json)" >> $GITHUB_OUTPUT
+ 
+
+      - name: Build Release
+        run: |
+          cargo build --release
+
+      - name: Prepare upload directory
+        run: |
+          mkdir -p upload
+          cp target/release/screen upload/
+
+      - name: Upload to UpYun S3
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          aws_key_id: ${{ secrets.UPYUN_API_KEY }}
+          aws_secret_access_key: ${{ secrets.UPYUN_API_SECRET }}
+          aws_bucket: ${{ secrets.UPYUN_BUCKET }}
+          source_dir: upload
+          destination_dir: core/${{ steps.version.outputs.project }}/${{ steps.version.outputs.version }}/linux
+          endpoint: https://s3.api.upyun.com
+
