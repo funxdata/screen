@@ -17,9 +17,11 @@ wry = "0.54.2"
 winit = "0.30.12"
 libc = "0.2"
 
+[build-dependencies]
+winres = "0.1"
+
 # ---------- 平台相关 ----------
 [target.'cfg(target_os = "windows")'.dependencies]
-winres = "0.1"
 windows = { version = "0.52", features = [
     "Win32_Foundation",
     "Win32_System_Threading",
