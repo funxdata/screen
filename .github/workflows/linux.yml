@@ -10,44 +10,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout 源码
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: Install Ubuntu Desktop and dependencies
+      # 2. 安装最小桌面库依赖（避免 ubuntu-desktop）
+      - name: Install dependencies
         run: |
           sudo apt update
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-               ubuntu-desktop \
-               jq \
-               pkg-config \
-               build-essential \
-               libglib2.0-dev \
-               libgtk-3-dev \
-               libwebkit2gtk-4.1-dev \
-               libsoup-3.0-dev \
-               xvfb
-          
-          # 设置虚拟显示器，防止 GUI 程序运行时报错
-          export DISPLAY=:99
-          Xvfb :99 -screen 0 1024x768x24 &
+          sudo apt install -y \
+            jq \
+            pkg-config \
+            build-essential \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libgdk-pixbuf2.0-dev \
+            libatk1.0-dev \
+            libpango1.0-dev \
+            libcairo2-dev
 
+      # 3. 读取 dytes.json 版本信息
       - name: Read version from JSON
         id: version
         run: |
           echo "project=$(jq -r '.name' dytes.json)" >> $GITHUB_OUTPUT
           echo "version=$(jq -r '.version' dytes.json)" >> $GITHUB_OUTPUT
 
+      # 4. 构建 Release
       - name: Build Release
         run: |
           cargo build --release
 
+      # 5. 准备上传目录
       - name: Prepare upload directory
         run: |
           mkdir -p upload
           cp target/release/screen upload/
 
+      # 6. 上传到 UpYun S3
       - name: Upload to UpYun S3
         uses: shallwefootball/s3-upload-action@master
         with:
