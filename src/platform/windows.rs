@@ -1,5 +1,5 @@
 use winit::event_loop::ActiveEventLoop;
-use winit::window::{Window, WindowAttributes};
+use winit::window::Window;
 use winit::dpi::LogicalSize;
 
 pub fn create_window(

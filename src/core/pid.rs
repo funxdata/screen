@@ -4,6 +4,8 @@ use std::fs;
 use std::io;
 use std::process::Child;
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(windows)]
+use windows_sys::Win32:: Foundation::INVALID_HANDLE_VALUE;
 
 const PID_FILE: &str = "./run.pid";
 
@@ -76,7 +78,8 @@ pub fn setup_exit_handler() {
 
         #[cfg(windows)]
         {
-            use windows::Win32::System::Console::SetConsoleCtrlHandler;
+            use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
+
             let _ = SetConsoleCtrlHandler(Some(win_exit_handler), 1);
         }
     }
@@ -101,10 +104,10 @@ fn is_process_alive(pid: u32) -> bool {
 
     #[cfg(windows)]
     unsafe {
-        use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
-        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-        let ok = !handle.is_invalid();
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        let ok = handle != INVALID_HANDLE_VALUE;
         let _ = CloseHandle(handle);
         ok
     }
