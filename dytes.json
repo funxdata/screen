@@ -1,8 +1,12 @@
 {
   "name": "screen",
-  "version": "1.0.3",
-  "description": "browser window application",
-  "keywords": ["screen", "browser", "window"],
+  "version": "1.0.5",
+  "description": "desktop shell for digital signage",
+  "keywords": [
+    "screen",
+    "browser",
+    "window"
+  ],
   "author": "funxdata",
   "type": "app",
   "license": "MIT",

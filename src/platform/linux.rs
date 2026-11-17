@@ -24,9 +24,7 @@ pub fn create_window(event_loop: &ActiveEventLoop, debug: bool) -> Option<Window
         .with_position(PhysicalPosition::new(0, 0));
 
     if !debug {
-        attrs = attrs
-            .with_decorations(false)
-            .with_resizable(false);
+        attrs = attrs.with_decorations(false).with_resizable(false);
     } else {
         // debug 模式保留 800x600 便于调试
         attrs = attrs.with_inner_size(PhysicalSize::new(800, 600));

@@ -1,37 +1,111 @@
 use crate::application::browser;
+use crate::core::logging;
+use crate::core::pid::{self, CyctronEvent, PidManager};
 use crate::platform;
+use std::time::{Duration, Instant};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
-use std::time::{Duration, Instant};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
-use winit::window::{Window, WindowId};
+use winit::window::{Window, WindowId, WindowLevel};
 use wry::WebView;
+
+/// 子进程状态轮询间隔。事件循环本身以约 60Hz 唤醒，轮询做节流。
+const POLL_INTERVAL: Duration = Duration::from_secs(2);
 
 pub struct App {
     window: Option<Window>,
     webview: Option<WebView>,
     debug: bool,
+    url: String,
+    pid: PidManager,
+    runtime_error: Option<String>,
     /// 启动后仍有几帧需要主动聚焦（只做一次，帮助窗口拿到键盘焦点）。
     focus_frames: u32,
+    last_poll: Instant,
 }
 
 impl App {
-    pub fn new(debug: bool) -> Self {
+    pub fn new(debug: bool, url: String, pid: PidManager) -> Self {
         Self {
             window: None,
             webview: None,
             debug,
+            url,
+            pid,
+            runtime_error: None,
             focus_frames: 5,
+            last_poll: Instant::now(),
+        }
+    }
+
+    /// 启动本地运行时。失败时记录错误，窗口仍会打开并显示错误页。
+    pub fn start_runtime(&mut self) -> Result<(), String> {
+        self.pid.start_cyctron()
+    }
+
+    pub fn set_runtime_error(&mut self, message: String) {
+        self.runtime_error = Some(message);
+    }
+
+    /// 统一退出清理，幂等。
+    pub fn shutdown(&mut self) {
+        self.pid.shutdown();
+    }
+
+    fn sync_bounds(&self) {
+        let (Some(window), Some(webview)) = (self.window.as_ref(), self.webview.as_ref()) else {
+            return;
+        };
+
+        let want = browser::window_rect(window);
+        match webview.bounds() {
+            Ok(current) if current == want => {}
+            _ => {
+                let _ = webview.set_bounds(want);
+            }
+        }
+    }
+
+    fn show_error(&mut self, message: &str) {
+        let Some(window) = self.window.as_ref() else {
+            return;
+        };
+
+        match browser::create_error_webview(Some(window), message) {
+            Ok(view) => self.webview = Some(view),
+            Err(err) => logging::error(err),
         }
     }
 }
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // 创建窗口（平台层负责）
         self.window = platform::create_window(event_loop, self.debug);
-        // 创建 WebView（应用层负责）
-        self.webview = browser::create_webview(self.window.as_ref(), self.debug);
+
+        if !self.debug {
+            if let Some(window) = self.window.as_ref() {
+                window.set_cursor_visible(false);
+                window.set_window_level(WindowLevel::AlwaysOnTop);
+            }
+        }
+
+        if let Some(error) = self.runtime_error.clone() {
+            self.show_error(&error);
+        } else {
+            match browser::create_webview(self.window.as_ref(), &self.url, self.debug) {
+                Ok(view) => {
+                    if self.debug {
+                        view.open_devtools();
+                    }
+                    self.webview = Some(view);
+                }
+                Err(err) => {
+                    logging::error(&err);
+                    self.show_error(&err);
+                }
+            }
+        }
+
         #[cfg(target_os = "linux")]
         {
             // Linux GTK 下 WebView 初始化必须 pump GTK 事件一次，避免闪烁
@@ -42,64 +116,37 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
-        if Some(id) != self.window.as_ref().map(|w| w.id()) {
+        if Some(id) != self.window.as_ref().map(|window| window.id()) {
             return;
         }
 
         match event {
             WindowEvent::CloseRequested => {
-                event_loop.exit();
-            }
-
-            // ✅ 窗口大小变化（只在子 WebView 或手动 bounds 时需要）
-            WindowEvent::Resized(_size) => {
-                // WebView 可能尚未创建（Resized 常常先于 resumed 的 WebView 创建到达），
-                // 此时跳过即可，创建时会用窗口尺寸设置初始 bounds。
-                let (Some(window), Some(webview)) =
-                    (self.window.as_ref(), self.webview.as_ref())
-                else {
-                    return;
-                };
-
-                // 统一用 browser::window_rect（基于 outer_size），避免用 inner_size
-                // 时按 GNOME 工作区少掉顶栏的 32px，导致底部黑条。
-                let new_bounds = browser::window_rect(window);
-
-                match webview.bounds() {
-                    Ok(current_bounds) if current_bounds == new_bounds => {}
-                    _ => {
-                        let _ = webview.set_bounds(new_bounds);
-                    }
+                if self.debug {
+                    event_loop.exit();
+                } else {
+                    logging::warn("忽略关闭请求：start 形态请用 `screen stop` 或退出信号");
                 }
-                // 尺寸变化后主动刷新，避免残留未重绘区域
-                window.request_redraw();
             }
-
+            WindowEvent::Resized(_) => self.sync_bounds(),
             _ => {}
         }
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        // Linux GTK 必须每轮事件循环 pump 一次
         #[cfg(target_os = "linux")]
         while gtk::events_pending() {
             gtk::main_iteration_do(false);
         }
 
-        // 尺寸校对：`Resized` 常常在 WebView 创建之前就触发过，之后窗口全屏化
-        // 不再产生新事件，WebView 会一直停留在创建时的尺寸。这里每轮循环比对
-        // 窗口与 WebView 的尺寸，不一致就纠正（只在需要时调用 set_bounds）。
-        if let (Some(window), Some(webview)) = (self.window.as_ref(), self.webview.as_ref()) {
-            let want = browser::window_rect(window);
-            match webview.bounds() {
-                Ok(current) if current == want => {}
-                _ => {
-                    let _ = webview.set_bounds(want);
-                }
-            }
+        if pid::exit_requested() {
+            logging::info("收到退出信号，准备退出");
+            event_loop.exit();
+            return;
         }
 
-        // 启动阶段主动聚焦，确保窗口拿到键盘/输入焦点。
+        self.sync_bounds();
+
         if self.focus_frames > 0 {
             if let Some(window) = self.window.as_ref() {
                 window.focus_window();
@@ -107,15 +154,34 @@ impl ApplicationHandler for App {
             self.focus_frames -= 1;
         }
 
-        // 以约 60Hz 定时唤醒事件循环。
-        //
-        // wry 在 Linux 下依赖 GTK 主循环（`gtk::main_iteration_do`）推进 webkit
-        // 的帧时钟与渲染；若事件循环使用 `ControlFlow::Wait`，没有输入事件时
-        // `about_to_wait` 不会被再次调用，GTK 主循环随之停摆，表现为"页面必须
-        // 手动点一下才渲染/刷新"。这里持续用 `WaitUntil` 唤醒，保证空闲时也在
-        // pump GTK，使 webkit 实时渲染。
+        let now = Instant::now();
+        if now.duration_since(self.last_poll) >= POLL_INTERVAL {
+            self.last_poll = now;
+            match self.pid.poll(now) {
+                CyctronEvent::Restarted => {
+                    logging::info("cyctron 已恢复，重新加载页面");
+                    if let Some(webview) = self.webview.as_ref() {
+                        let _ = webview.load_url(&self.url);
+                    }
+                }
+                CyctronEvent::GaveUp => {
+                    self.show_error(
+                        "本地运行时 cyctron 多次启动失败，请检查安装与 logs/screen.log。",
+                    );
+                }
+                CyctronEvent::None => {}
+            }
+        }
+
+        // wry 在 Linux 下依赖 GTK 主循环推进 webkit 的帧时钟；若使用
+        // `ControlFlow::Wait`，空闲时 `about_to_wait` 不再被调用，页面会
+        // 卡住直到下一次输入。持续以 WaitUntil 唤醒保证空闲时也在 pump。
         event_loop.set_control_flow(ControlFlow::WaitUntil(
             Instant::now() + Duration::from_millis(16),
         ));
+    }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        self.shutdown();
     }
 }
