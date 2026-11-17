@@ -8,8 +8,13 @@ use wry::{Rect, WebView, WebViewBuilder};
 /// 默认是 **1x1**；而 winit 的 `Resized` 事件往往在 WebView 创建之前就已触发过，
 /// 之后窗口尺寸不再变化，于是 WebView 会一直停留在 1x1，表现为"只渲染一小块、
 /// 其余区域黑屏"。因此这里必须显式给出初始 bounds。
-fn window_rect(window: &Window) -> Rect {
-    let size = window.inner_size().to_logical::<u32>(window.scale_factor());
+/// 计算 WebView 应占的窗口矩形。
+///
+/// 使用 `outer_size()` 而不是 `inner_size()`：全屏时 GNOME 的 `inner_size()`
+/// 会按工作区（`_NET_WORKAREA`，扣掉 32px 顶栏）返回 1920x1048，而窗口本身是
+/// 1920x1080，用内部尺寸会让 WebView 底部空出 32px 黑条。
+pub fn window_rect(window: &Window) -> Rect {
+    let size = window.outer_size().to_logical::<u32>(window.scale_factor());
     Rect {
         position: LogicalPosition::new(0, 0).into(),
         size: LogicalSize::new(size.width.max(1), size.height.max(1)).into(),

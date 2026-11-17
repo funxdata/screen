@@ -1,16 +1,19 @@
 use crate::application::browser;
 use crate::platform;
 use winit::application::ApplicationHandler;
-use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
+use std::time::{Duration, Instant};
+use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::window::{Window, WindowId};
-use wry::{Rect, WebView};
+use wry::WebView;
 
 pub struct App {
     window: Option<Window>,
     webview: Option<WebView>,
     debug: bool,
+    /// 启动后还需要主动聚焦/重绘的帧数。
+    /// webkit 在窗口刚映射时不一定提交首帧，表现为"必须点一下才会渲染"。
+    warmup_frames: u32,
 }
 
 impl App {
@@ -19,6 +22,7 @@ impl App {
             window: None,
             webview: None,
             debug,
+            warmup_frames: 30,
         }
     }
 }
@@ -49,7 +53,7 @@ impl ApplicationHandler for App {
             }
 
             // ✅ 窗口大小变化（只在子 WebView 或手动 bounds 时需要）
-            WindowEvent::Resized(size) => {
+            WindowEvent::Resized(_size) => {
                 // WebView 可能尚未创建（Resized 常常先于 resumed 的 WebView 创建到达），
                 // 此时跳过即可，创建时会用窗口尺寸设置初始 bounds。
                 let (Some(window), Some(webview)) =
@@ -58,13 +62,9 @@ impl ApplicationHandler for App {
                     return;
                 };
 
-                // 转换为逻辑像素
-                let size = size.to_logical::<u32>(window.scale_factor());
-
-                let new_bounds = Rect {
-                    position: LogicalPosition::new(0, 0).into(),
-                    size: LogicalSize::new(size.width.max(1), size.height.max(1)).into(),
-                };
+                // 统一用 browser::window_rect（基于 outer_size），避免用 inner_size
+                // 时按 GNOME 工作区少掉顶栏的 32px，导致底部黑条。
+                let new_bounds = browser::window_rect(window);
 
                 match webview.bounds() {
                     Ok(current_bounds) if current_bounds == new_bounds => {}
@@ -80,7 +80,7 @@ impl ApplicationHandler for App {
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         // Linux GTK 必须每轮事件循环 pump 一次
         #[cfg(target_os = "linux")]
         while gtk::events_pending() {
@@ -91,17 +91,29 @@ impl ApplicationHandler for App {
         // 不再产生新事件，WebView 会一直停留在创建时的尺寸。这里每轮循环比对
         // 窗口与 WebView 的尺寸，不一致就纠正（只在需要时调用 set_bounds）。
         if let (Some(window), Some(webview)) = (self.window.as_ref(), self.webview.as_ref()) {
-            let size = window.inner_size().to_logical::<u32>(window.scale_factor());
-            let want = Rect {
-                position: LogicalPosition::new(0, 0).into(),
-                size: LogicalSize::new(size.width.max(1), size.height.max(1)).into(),
-            };
+            let want = browser::window_rect(window);
             match webview.bounds() {
                 Ok(current) if current == want => {}
                 _ => {
                     let _ = webview.set_bounds(want);
                 }
             }
+        }
+
+        // 启动预热：窗口刚映射时 webkit 可能不提交首帧（表现为"必须点一下才渲染"）。
+        // `about_to_wait` 在空闲时不一定被反复调用，所以显式用 `WaitUntil` 定时唤醒，
+        // 持续若干秒主动聚焦 + 请求重绘，推动 webkit 完成首次呈现。
+        if self.warmup_frames > 0 {
+            if let Some(window) = self.window.as_ref() {
+                window.focus_window();
+                window.request_redraw();
+            }
+            self.warmup_frames -= 1;
+            event_loop.set_control_flow(ControlFlow::WaitUntil(
+                Instant::now() + Duration::from_millis(100),
+            ));
+        } else {
+            event_loop.set_control_flow(ControlFlow::Wait);
         }
     }
 }
