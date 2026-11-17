@@ -1,3 +1,4 @@
+use crate::core::pid;
 use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::window::Window;
 use wry::{NewWindowResponse, Rect, WebView, WebViewBuilder};
@@ -11,6 +12,16 @@ window.addEventListener('wheel', event => {
 window.addEventListener('keydown', event => {
     if (event.ctrlKey && ['+', '-', '=', '0'].includes(event.key)) {
         event.preventDefault();
+    }
+    // Ctrl+Q（macOS 为 Cmd+Q）：请求退出。键盘事件由 WebView 接收，
+    // 只能经 IPC 通知宿主进程，winit 的窗口事件收不到。
+    if ((event.ctrlKey || event.metaKey) && !event.altKey &&
+        (event.key === 'q' || event.key === 'Q')) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (window.ipc && window.ipc.postMessage) {
+            window.ipc.postMessage('quit');
+        }
     }
 }, true);
 "#;
@@ -78,7 +89,14 @@ pub fn create_webview(window: Option<&Window>, url: &str, debug: bool) -> Result
         .with_url(url)
         .with_hotkeys_zoom(false)
         .with_navigation_handler(move |target| is_allowed_navigation(&target, &allowed_origin))
-        .with_new_window_req_handler(|_, _| NewWindowResponse::Deny);
+        .with_new_window_req_handler(|_, _| NewWindowResponse::Deny)
+        .with_ipc_handler(|request| {
+            // 目前只有 Ctrl+Q 会发消息；未知消息忽略。
+            if request.body().trim() == "quit" {
+                crate::core::logging::info("收到 Ctrl+Q 快捷键，准备退出");
+                pid::request_exit();
+            }
+        });
 
     if debug {
         builder = builder.with_devtools(true);

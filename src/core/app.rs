@@ -4,8 +4,9 @@ use crate::core::pid::{self, CyctronEvent, PidManager};
 use crate::platform;
 use std::time::{Duration, Instant};
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
+use winit::keyboard::{Key, ModifiersState};
 use winit::window::{Window, WindowId, WindowLevel};
 use wry::WebView;
 
@@ -22,6 +23,8 @@ pub struct App {
     /// 启动后仍有几帧需要主动聚焦（只做一次，帮助窗口拿到键盘焦点）。
     focus_frames: u32,
     last_poll: Instant,
+    /// 当前修饰键状态，用于识别 Ctrl+Q 退出快捷键。
+    modifiers: ModifiersState,
 }
 
 impl App {
@@ -35,6 +38,7 @@ impl App {
             runtime_error: None,
             focus_frames: 5,
             last_poll: Instant::now(),
+            modifiers: ModifiersState::empty(),
         }
     }
 
@@ -50,6 +54,19 @@ impl App {
     /// 统一退出清理，幂等。
     pub fn shutdown(&mut self) {
         self.pid.shutdown();
+    }
+
+    /// 是否为退出快捷键（Ctrl+Q，兼容 macOS 的 Command+Q）。
+    fn is_quit_shortcut(&self, event: &KeyEvent) -> bool {
+        if event.state != ElementState::Pressed || event.repeat {
+            return false;
+        }
+        let ctrl_or_cmd = self.modifiers.control_key() || self.modifiers.super_key();
+        if !ctrl_or_cmd {
+            return false;
+        }
+        matches!(&event.logical_key, Key::Character(ch)
+            if ch.as_str().eq_ignore_ascii_case("q"))
     }
 
     fn sync_bounds(&self) {
@@ -125,7 +142,16 @@ impl ApplicationHandler for App {
                 if self.debug {
                     event_loop.exit();
                 } else {
-                    logging::warn("忽略关闭请求：start 形态请用 `screen stop` 或退出信号");
+                    logging::warn("忽略关闭请求：start 形态请用 `screen stop`、Ctrl+Q 或退出信号");
+                }
+            }
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers.state();
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                if self.is_quit_shortcut(&event) {
+                    logging::info("收到 Ctrl+Q，准备退出");
+                    event_loop.exit();
                 }
             }
             WindowEvent::Resized(_) => self.sync_bounds(),

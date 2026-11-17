@@ -28,6 +28,14 @@ pub fn exit_requested() -> bool {
     EXIT_FLAG.load(Ordering::Acquire)
 }
 
+/// 由程序内部（如 Ctrl+Q 快捷键）请求退出。
+///
+/// 只置位标志，真正的清理（停止 cyctron、删除 run.pid）仍由主循环完成，
+/// 与信号处理器走同一条优雅退出路径。
+pub fn request_exit() {
+    EXIT_FLAG.store(true, Ordering::Release);
+}
+
 /// 安装退出信号处理器。处理器内只置位，清理留给主循环。
 pub fn install_exit_handler() {
     #[cfg(unix)]
