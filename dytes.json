@@ -1,8 +1,20 @@
 {
   "name": "screen",
   "version": "1.0.0",
-  "description": "core for screen",
-  "keywords": ["screen"],
+  "description": "browser window application",
+  "keywords": ["screen", "browser", "window"],
   "author": "funxdata",
-  "type": "core"
+  "type": "app",
+  "license": "MIT",
+  "platform-exports": {
+    "linux": {
+      "./target/release/screen": "screen.bin"
+    },
+    "windows": {
+      "./target/release/screen.exe": "screen.exe"
+    },
+    "macos": {
+      "./target/release/screen": "screen.app"
+    }
+  }
 }

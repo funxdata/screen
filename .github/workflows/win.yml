@@ -32,14 +32,26 @@ jobs:
       - name: Prepare upload directory
         run: |
           mkdir upload
-          copy target\release\screen.exe upload\
+          mkdir manifest
+          copy target\release\screen.exe upload\screen.exe
+          copy dytes.json manifest\
 
-      - name: Upload to UpYun S3
+      - name: Upload binary to UpYun S3
         uses: shallwefootball/s3-upload-action@master
         with:
           aws_key_id: ${{ secrets.UPYUN_API_KEY }}
           aws_secret_access_key: ${{ secrets.UPYUN_API_SECRET }}
           aws_bucket: ${{ secrets.UPYUN_BUCKET }}
           source_dir: upload
-          destination_dir: core/${{ steps.version.outputs.project }}/${{ steps.version.outputs.version }}/win
+          destination_dir: app/${{ steps.version.outputs.project }}/${{ steps.version.outputs.version }}/windows
+          endpoint: https://s3.api.upyun.com
+
+      - name: Upload manifest to UpYun S3
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          aws_key_id: ${{ secrets.UPYUN_API_KEY }}
+          aws_secret_access_key: ${{ secrets.UPYUN_API_SECRET }}
+          aws_bucket: ${{ secrets.UPYUN_BUCKET }}
+          source_dir: manifest
+          destination_dir: app/${{ steps.version.outputs.project }}
           endpoint: https://s3.api.upyun.com

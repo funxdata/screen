@@ -45,20 +45,31 @@ jobs:
         run: |
           cargo build --release
 
-      # 5. 准备上传目录
+      # 5. 准备上传目录：产物名必须与 dytes.json 的 platform-exports 一致
       - name: Prepare upload directory
         run: |
-          mkdir -p upload
-          cp target/release/screen upload/
+          mkdir -p upload manifest
+          cp target/release/screen upload/screen.bin
+          cp dytes.json manifest/
 
-      # 6. 上传到 UpYun S3
-      - name: Upload to UpYun S3
+      # 6. 上传产物到 app/<name>/<version>/linux/
+      - name: Upload binary to UpYun S3
         uses: shallwefootball/s3-upload-action@master
         with:
           aws_key_id: ${{ secrets.UPYUN_API_KEY }}
           aws_secret_access_key: ${{ secrets.UPYUN_API_SECRET }}
           aws_bucket: ${{ secrets.UPYUN_BUCKET }}
           source_dir: upload
-          destination_dir: core/${{ steps.version.outputs.project }}/${{ steps.version.outputs.version }}/linux
+          destination_dir: app/${{ steps.version.outputs.project }}/${{ steps.version.outputs.version }}/linux
           endpoint: https://s3.api.upyun.com
 
+      # 7. 上传清单到 app/<name>/dytes.json（dytes update 依赖该文件判断线上版本）
+      - name: Upload manifest to UpYun S3
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          aws_key_id: ${{ secrets.UPYUN_API_KEY }}
+          aws_secret_access_key: ${{ secrets.UPYUN_API_SECRET }}
+          aws_bucket: ${{ secrets.UPYUN_BUCKET }}
+          source_dir: manifest
+          destination_dir: app/${{ steps.version.outputs.project }}
+          endpoint: https://s3.api.upyun.com
