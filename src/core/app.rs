@@ -11,9 +11,8 @@ pub struct App {
     window: Option<Window>,
     webview: Option<WebView>,
     debug: bool,
-    /// 启动后还需要主动聚焦/重绘的帧数。
-    /// webkit 在窗口刚映射时不一定提交首帧，表现为"必须点一下才会渲染"。
-    warmup_frames: u32,
+    /// 启动后仍有几帧需要主动聚焦（只做一次，帮助窗口拿到键盘焦点）。
+    focus_frames: u32,
 }
 
 impl App {
@@ -22,7 +21,7 @@ impl App {
             window: None,
             webview: None,
             debug,
-            warmup_frames: 30,
+            focus_frames: 5,
         }
     }
 }
@@ -100,20 +99,23 @@ impl ApplicationHandler for App {
             }
         }
 
-        // 启动预热：窗口刚映射时 webkit 可能不提交首帧（表现为"必须点一下才渲染"）。
-        // `about_to_wait` 在空闲时不一定被反复调用，所以显式用 `WaitUntil` 定时唤醒，
-        // 持续若干秒主动聚焦 + 请求重绘，推动 webkit 完成首次呈现。
-        if self.warmup_frames > 0 {
+        // 启动阶段主动聚焦，确保窗口拿到键盘/输入焦点。
+        if self.focus_frames > 0 {
             if let Some(window) = self.window.as_ref() {
                 window.focus_window();
-                window.request_redraw();
             }
-            self.warmup_frames -= 1;
-            event_loop.set_control_flow(ControlFlow::WaitUntil(
-                Instant::now() + Duration::from_millis(100),
-            ));
-        } else {
-            event_loop.set_control_flow(ControlFlow::Wait);
+            self.focus_frames -= 1;
         }
+
+        // 以约 60Hz 定时唤醒事件循环。
+        //
+        // wry 在 Linux 下依赖 GTK 主循环（`gtk::main_iteration_do`）推进 webkit
+        // 的帧时钟与渲染；若事件循环使用 `ControlFlow::Wait`，没有输入事件时
+        // `about_to_wait` 不会被再次调用，GTK 主循环随之停摆，表现为"页面必须
+        // 手动点一下才渲染/刷新"。这里持续用 `WaitUntil` 唤醒，保证空闲时也在
+        // pump GTK，使 webkit 实时渲染。
+        event_loop.set_control_flow(ControlFlow::WaitUntil(
+            Instant::now() + Duration::from_millis(16),
+        ));
     }
 }
