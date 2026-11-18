@@ -118,7 +118,40 @@ fn run_app(debug: bool, work_dir: PathBuf, url: String) -> i32 {
     code
 }
 
+/// 注册 Xlib 错误钩子，吞掉 webkit 与 winit 共用 GLX 时产生的 GLXBadWindow(170)。
+///
+/// 这类错误多为异步产生（窗口销毁/焦点切换时），会污染 winit 的下一次同步请求，
+/// 表现为 `Failed to focus input context: XError { GLXBadWindow }` 并直接 panic。
+/// wry 官方 winit 示例同样用该钩子忽略 170。
+#[cfg(target_os = "linux")]
+fn register_x11_error_hook() {
+    /// Xlib 的 `XErrorEvent`（与 libX11 的 C 布局一致）。
+    #[repr(C)]
+    struct XErrorEvent {
+        type_: std::ffi::c_int,
+        display: *mut std::ffi::c_void,
+        resourceid: std::ffi::c_ulong,
+        serial: std::ffi::c_ulong,
+        error_code: std::ffi::c_uchar,
+        request_code: std::ffi::c_uchar,
+        minor_code: std::ffi::c_uchar,
+    }
+
+    winit::platform::x11::register_xlib_error_hook(Box::new(|_display, event| {
+        if event.is_null() {
+            return false;
+        }
+        // GLXBadWindow = 170
+        let code = unsafe { (*(event as *const XErrorEvent)).error_code };
+        code == 170
+    }));
+}
+
 fn main() {
+    // 必须在任何 X11 / GLX 初始化之前注册。
+    #[cfg(target_os = "linux")]
+    register_x11_error_hook();
+
     let args = Args::parse();
     let Args {
         command,
