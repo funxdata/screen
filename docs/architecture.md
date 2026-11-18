@@ -129,7 +129,7 @@ Linux 的 `about_to_wait` 每轮泵送 GTK 事件，并以 `ControlFlow::WaitUnt
 
 ## 10. 版本与发布
 
-- `dytes.json` 是发布版本的事实源，当前 `1.0.5`。
+- `dytes.json` 是发布版本的事实源，当前 `1.0.7`。
 - `Cargo.toml` 的 `version` 必须与之一致；`screen --version` 使用 `env!("CARGO_PKG_VERSION")`。
 - `.github/workflows/release.yml` 由 `v*` tag 触发：
   1. `prepare` 校验 tag、`Cargo.toml`、`dytes.json` 三者一致；

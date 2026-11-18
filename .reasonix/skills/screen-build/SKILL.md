@@ -11,7 +11,7 @@ description: 构建 screen 的 release 产物、核对版本、打 tag 发布并
 
 `dytes.json` 是发布版本的事实源：
 
-- `dytes.json` 的 `version`（当前 `1.0.5`）；
+- `dytes.json` 的 `version`（当前 `1.0.7`）；
 - `Cargo.toml` 的 `[package].version`；
 - `screen --version` 由 `env!("CARGO_PKG_VERSION")` 自动跟随，无需手改。
 
@@ -56,8 +56,8 @@ Windows release 无控制台，`println!` 不可见，改看 `logs/screen.log`�
 发布由 `.github/workflows/release.yml` 在推送 `v*` tag 时触发：
 
 ```bash
-git tag v1.0.5
-git push origin v1.0.5
+git tag v1.0.7
+git push origin v1.0.7
 ```
 
 流程：

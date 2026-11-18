@@ -2,7 +2,7 @@
 
 本目录保留已处理问题的结论。当前没有待处理项，原始条目已删除。
 
-最后核对：2026-11-17，版本 `1.0.5`。
+最后核对：2026-11-18，版本 `1.0.7`。
 
 ## 已关闭
 
@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 001 | 退出信号被吞掉 | 信号处理器只置位，`App::about_to_wait` 消费后退出；所有退出路径统一走 `PidManager::shutdown()`；Windows 处理器返回 `1`，Unix 第二次信号恢复默认行为。`exit_handler is never used` 警告消失。 |
 | 002 | `stop` / `init` 占位实现 | 移除 `init`；实现 `stop`：读取 `run.pid`、确认存活后发送 `SIGTERM` / `TerminateProcess`，最多等待 3 秒并清理文件。 |
-| 003 | 版本号三处不一致 | `Cargo.toml` 与 `dytes.json` 统一为 `1.0.5`；`--version` 使用 `env!("CARGO_PKG_VERSION")`；`release.yml` 的 `prepare` 校验两者与 tag 一致。 |
+| 003 | 版本号三处不一致 | `Cargo.toml` 与 `dytes.json` 统一为 `1.0.7`；`--version` 使用 `env!("CARGO_PKG_VERSION")`；`release.yml` 的 `prepare` 校验两者与 tag 一致。 |
 | 004 | 运行期路径依赖 CWD | 新增 `core::paths`：工作目录按 `--work-dir` > `SCREEN_HOME` > 可执行文件目录解析；`cyctron` 按平台候选名查找并覆盖 macOS bundle 路径；启动日志打印绝对路径。 |
 | 005 | 失败处理与可观测性不足 | 新增 `core::logging`：日志写入 `<work-dir>/logs/screen.log` 并同步 stderr，安装 panic hook；WebView 创建失败与 `cyctron` 连续失败时加载内置错误页，错误文本落日志。 |
 | 006 | cyctron 只启动不监控 | `App` 每 2 秒轮询 `try_wait()`；异常退出按 1s / 5s / 30s 退避重启，最多 3 次；重启成功后重新加载页面，达到上限显示错误页。 |

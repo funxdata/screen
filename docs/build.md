@@ -91,13 +91,13 @@ cargo test
 
 发布步骤：
 
-1. 更新 `dytes.json` 与 `Cargo.toml` 到同一版本（当前 `1.0.5`）。
+1. 更新 `dytes.json` 与 `Cargo.toml` 到同一版本（当前 `1.0.7`）。
 2. 本地执行第 5 节的三项检查，并跑一次 `cargo build --release --locked`。
 3. 打 tag 并推送：
 
    ```bash
-   git tag v1.0.5
-   git push origin v1.0.5
+   git tag v1.0.7
+   git push origin v1.0.7
    ```
 
 `release.yml` 依次执行：
